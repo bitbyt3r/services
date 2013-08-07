@@ -23,10 +23,11 @@ def reloadConfig(config):
 
 def checkState(config):
   processes = []
-  processes.extend([process(x, "start") for x in config['start'].split(" ")])
-  processes.extend([process(x, "stop") for x in config['stop'].split(" ")])
-  
-  
+  processes.extend([process(x, True) for x in config['start'].split(" ")])
+  processes.extend([process(x, False) for x in config['stop'].split(" ")])
+  for i in processes:
+    if i.checkMethod(i.name) != i.desiredState:
+      i.setMethod(i.name, i.desiredState)
 
 def main():
   context = daemon.DaemonContext()
@@ -34,12 +35,29 @@ def main():
     signal.SIGUSR1: reloadConfig(config),
     }
   context.pidfile = lockfile.FileLock(LOCK_FILE)
-  with context:
+  for i in config['stop'].split(" "):
+    os.system("/sbin/service "+i+" status")
+  sys.exit(0)
+  if not("-f" in sys.argv):
+    with context:
+      while True:
+        checkState(config)
+        time.sleep(float(config['sleep_time']))
+  else:
     while True:
       checkState(config)
-      time.sleep(config['sleepTime'])
+      time.sleep(float(config['sleep_time']))
+
     
-main()
+def serviceStatus(name):
+  return os.system("/sbin/service "+name+" status | grep stopped")
+
+def serviceSet(name, state):
+  if state:
+    stateText = "start"
+  else:
+    stateText = "stop"
+  os.system("/sbin/service "+name+" "+stateText)
 
 class process:
   def __init__(self, name, state):
@@ -47,9 +65,34 @@ class process:
     self.status = "Unknown"
     self.desiredState = state
     methods = {
-      "mrepo": (serviceStatus, serviceSet),
+      "cfengine3": (serviceStatus, serviceSet),
+      "mdmonitor": (serviceStatus, serviceSet),
+      "xinetd": (serviceStatus, serviceSet),
+      "httpd": (serviceStatus, serviceSet),
+      "tomcat6": (serviceStatus, serviceSet),
+      "abrtd": (serviceStatus, serviceSet),
+      "avahi-daemon": (serviceStatus, serviceSet),
+      "avahi-dnsconfd": (serviceStatus, serviceSet),
+      "cachefilesd": (serviceStatus, serviceSet),
+      "iscsi": (serviceStatus, serviceSet),
+      "iscsid": (serviceStatus, serviceSet),
+      "lldpad": (serviceStatus, serviceSet),
+      "ifdhandler": (serviceStatus, serviceSet),
+      "pcscd": (serviceStatus, serviceSet),
+      "pppoe-server": (serviceStatus, serviceSet),
+      "qpidd": (serviceStatus, serviceSet),
+      "rhsmcertd": (serviceStatus, serviceSet),
+      "sanlock": (serviceStatus, serviceSet),
+      "slpd": (serviceStatus, serviceSet),
+      "spiceusbsrvd": (serviceStatus, serviceSet),
+      "spice-vdagentd": (serviceStatus, serviceSet),
+      "virt-who": (serviceStatus, serviceSet),
+      "wdmd": (serviceStatus, serviceSet),
+
       }
     if self.name in methods.keys():
       self.checkMethod, self.setMethod = methods[self.name]
     else:
       self.checkMethod, self.setMethod = (serviceStatus, serviceSet)
+
+main()
