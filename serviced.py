@@ -26,8 +26,10 @@ def checkState(config):
   processes.extend([process(x, True) for x in config['start'].split(" ")])
   processes.extend([process(x, False) for x in config['stop'].split(" ")])
   for i in processes:
-    if i.checkMethod(i.name) != i.desiredState:
-      i.setMethod(i.name, i.desiredState)
+    if i.desiredState:
+      i.start()
+    else:
+      i.stop()
 
 def main():
   context = daemon.DaemonContext()
@@ -35,8 +37,6 @@ def main():
     signal.SIGUSR1: reloadConfig(config),
     }
   context.pidfile = lockfile.FileLock(LOCK_FILE)
-  for i in config['stop'].split(" "):
-    os.system("/sbin/service "+i+" status")
   sys.exit(0)
   if not("-f" in sys.argv):
     with context:
@@ -48,18 +48,7 @@ def main():
       checkState(config)
       time.sleep(float(config['sleep_time']))
 
-    
-def serviceStatus(name):
-  return os.system("/sbin/service "+name+" status | grep stopped")
-
-def serviceSet(name, state):
-  if state:
-    stateText = "start"
-  else:
-    stateText = "stop"
-  os.system("/sbin/service "+name+" "+stateText)
-
-class process:
+class Service:
   def __init__(self, name, state):
     self.name = name
     self.status = "Unknown"
@@ -88,11 +77,27 @@ class process:
       "spice-vdagentd": (serviceStatus, serviceSet),
       "virt-who": (serviceStatus, serviceSet),
       "wdmd": (serviceStatus, serviceSet),
-
       }
     if self.name in methods.keys():
       self.checkMethod, self.setMethod = methods[self.name]
     else:
       self.checkMethod, self.setMethod = (serviceStatus, serviceSet)
+
+class SysvService(Service):
+  def __init__(self, name):
+    self.name = name
+
+  def start(self):
+    if not(self.running()):
+      os.system("/sbin/service "+self.name+" start")
+    return self.running()
+
+  def stop(self):
+    if self.running():
+      os.system("/sbin/service "+self.name+" stop")
+    return not(self.running())
+
+  def running(self):
+    return not(os.system("/sbin/service "+self.name+" status | grep running"))
 
 main()
