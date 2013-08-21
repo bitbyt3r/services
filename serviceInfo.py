@@ -9,7 +9,7 @@ class Service:
   
   def getStatus(self):
     if self.status == "Unknown":
-      self.running()
+      self.update()
     return self.status
 
   def check(self):
@@ -25,17 +25,34 @@ class Service:
 
 class SysvService(Service):
   def start(self):
-    if not(self.running()):
-      os.system("/sbin/service "+self.name+" start")
-    return self.running()
+    if self.getStatus() != "Running":
+      return os.system("/sbin/service "+self.name+" start") == 0
+    return True
 
   def stop(self):
-    if self.running():
-      os.system("/sbin/service "+self.name+" stop")
-    return not(self.running())
+    if self.getStatus() != "Stopped":
+      return os.system("/sbin/service "+self.name+" stop") == 0
+    return True
 
-  def running(self):
-    if not(os.system("/sbin/service "+self.name+" status | grep running")):
+  def update(self):
+    if os.system("/sbin/service "+self.name+" status | grep running") == 0:
+      self.status = "Running"
+      return
+    self.status = "Stopped"
+    
+class InitdService(Service):
+  def start(self):
+    if self.getStatus() != "Running":
+      return os.system("/etc/init.d/"+self.name+" start") == 0
+    return True
+
+  def stop(self):
+    if self.getStatus() != "Stopped":
+      return os.system("/etc/init.d/"+self.name+" stop") == 0
+    return True
+
+  def update(self):
+    if os.system("/etc/init.d/"+self.name+" status | grep running") == 0:
       self.status = "Running"
       return True
     self.status = "Stopped"

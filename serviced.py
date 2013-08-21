@@ -20,9 +20,11 @@ config = getConfig(CONFIG_FILE)
 
 def reloadConfig(config):
   config = getConfig(CONFIG_FILE)
+  services = [serviceInfo.makeService(x.strip(), "Running") for x in config['start'].split(",")]
+  services.extend([serviceInfo.makeService(x.strip(), "Stopped") for x in config['stop'].split(",")]
 
 def checkState(config):
-  processes = []
+  services = []
   processes.extend([process(x, True) for x in config['start'].split(" ")])
   processes.extend([process(x, False) for x in config['stop'].split(" ")])
   for i in processes:
@@ -47,57 +49,5 @@ def main():
     while True:
       checkState(config)
       time.sleep(float(config['sleep_time']))
-
-class Service:
-  def __init__(self, name, state):
-    self.name = name
-    self.status = "Unknown"
-    self.desiredState = state
-    methods = {
-      "cfengine3": (serviceStatus, serviceSet),
-      "mdmonitor": (serviceStatus, serviceSet),
-      "xinetd": (serviceStatus, serviceSet),
-      "httpd": (serviceStatus, serviceSet),
-      "tomcat6": (serviceStatus, serviceSet),
-      "abrtd": (serviceStatus, serviceSet),
-      "avahi-daemon": (serviceStatus, serviceSet),
-      "avahi-dnsconfd": (serviceStatus, serviceSet),
-      "cachefilesd": (serviceStatus, serviceSet),
-      "iscsi": (serviceStatus, serviceSet),
-      "iscsid": (serviceStatus, serviceSet),
-      "lldpad": (serviceStatus, serviceSet),
-      "ifdhandler": (serviceStatus, serviceSet),
-      "pcscd": (serviceStatus, serviceSet),
-      "pppoe-server": (serviceStatus, serviceSet),
-      "qpidd": (serviceStatus, serviceSet),
-      "rhsmcertd": (serviceStatus, serviceSet),
-      "sanlock": (serviceStatus, serviceSet),
-      "slpd": (serviceStatus, serviceSet),
-      "spiceusbsrvd": (serviceStatus, serviceSet),
-      "spice-vdagentd": (serviceStatus, serviceSet),
-      "virt-who": (serviceStatus, serviceSet),
-      "wdmd": (serviceStatus, serviceSet),
-      }
-    if self.name in methods.keys():
-      self.checkMethod, self.setMethod = methods[self.name]
-    else:
-      self.checkMethod, self.setMethod = (serviceStatus, serviceSet)
-
-class SysvService(Service):
-  def __init__(self, name):
-    self.name = name
-
-  def start(self):
-    if not(self.running()):
-      os.system("/sbin/service "+self.name+" start")
-    return self.running()
-
-  def stop(self):
-    if self.running():
-      os.system("/sbin/service "+self.name+" stop")
-    return not(self.running())
-
-  def running(self):
-    return not(os.system("/sbin/service "+self.name+" status | grep running"))
 
 main()
