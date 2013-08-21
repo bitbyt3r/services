@@ -6,9 +6,11 @@ import time
 import daemon
 import signal
 import lockfile
+import traceback
 import ConfigParser
+import serviceInfo
 
-CONFIG_FILE = "/usr/csee/etc/serviced.conf"
+CONFIG_FILE = "/extra/projects/services/serviced.conf"
 LOCK_FILE = "/var/lock/serviced.pid"
 
 def getConfig(configfile):
@@ -16,38 +18,37 @@ def getConfig(configfile):
   config.readfp(open(configfile))
   return dict((key, value) for (key, value) in config.items("main"))
 
-config = getConfig(CONFIG_FILE)
-
-def reloadConfig(config):
+def reloadConfig():
   config = getConfig(CONFIG_FILE)
   services = [serviceInfo.makeService(x.strip(), "Running") for x in config['start'].split(",")]
-  services.extend([serviceInfo.makeService(x.strip(), "Stopped") for x in config['stop'].split(",")]
+  services.extend([serviceInfo.makeService(x.strip(), "Stopped") for x in config['stop'].split(",")])
+  return config, services
 
-def checkState(config):
-  services = []
-  processes.extend([process(x, True) for x in config['start'].split(" ")])
-  processes.extend([process(x, False) for x in config['stop'].split(" ")])
-  for i in processes:
-    if i.desiredState:
-      i.start()
-    else:
-      i.stop()
+def checkState(services):
+  for i in services:
+    i.correctState()
 
 def main():
   context = daemon.DaemonContext()
-  context.signal_map = {
-    signal.SIGUSR1: reloadConfig(config),
-    }
+  context.stderr = open("/extra/projects/services/stderr.log", "w+")
+  context.stdout = open("/extra/projects/services/stdout.log", "w+")
   context.pidfile = lockfile.FileLock(LOCK_FILE)
-  sys.exit(0)
   if not("-f" in sys.argv):
-    with context:
+    print "Entering Daemon Mode"
+    config, services = reloadConfig()
+#    with context:
+    if True:
+      print "Going"
       while True:
-        checkState(config)
+        config, services = reloadConfig()
+        print config, services
+        checkState(services)
         time.sleep(float(config['sleep_time']))
   else:
+    print "Running outside of Daemon"
     while True:
-      checkState(config)
+      config, services = reloadConfig()
+      checkState(services)
       time.sleep(float(config['sleep_time']))
 
 main()

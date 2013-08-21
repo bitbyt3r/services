@@ -7,9 +7,11 @@ class Service:
     self.status = "Unknown"
     self.desiredState = state
   
+  def resetStatus(self):
+    self.status = "Unknown"
+
   def getStatus(self):
-    if self.status == "Unknown":
-      self.update()
+    self.update()
     return self.status
 
   def check(self):
@@ -22,6 +24,18 @@ class Service:
       else:
         self.stop()
     return self.check()
+
+class Dummy(Service):
+  def start(self):
+    self.status = "Running"
+    return True
+
+  def stop(self):
+    self.status = "Stopped"
+    return True
+
+  def update(self):
+    return
 
 class SysvService(Service):
   def start(self):
@@ -36,6 +50,13 @@ class SysvService(Service):
 
   def update(self):
     if os.system("/sbin/service "+self.name+" status | grep running") == 0:
+      self.status = "Running"
+      return
+    self.status = "Stopped"
+
+class SysvServiceNot(SysvService):
+  def update(self):
+    if os.system("/sbin/service "+self.name+" status | grep \"not running\"") != 0:
       self.status = "Running"
       return
     self.status = "Stopped"
@@ -76,10 +97,13 @@ services = {"cfengine3":SysvService,
             "pppoe-server":SysvService,
             "qpidd":SysvService,
             "rhsmcertd":SysvService,
+            "sandbox":Dummy,
             "sanlock":SysvService,
             "slpd":SysvService,
             "spiceusbsrvd":SysvService,
             "spice-vdagentd":SysvService,
+            "tog-pegasus":SysvServiceNot,
+            "vboxweb-service":SysvServiceNot,
             "virt-who":SysvService,
             "wdmd":SysvService,}
 
